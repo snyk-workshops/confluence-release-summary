@@ -1,0 +1,87 @@
+name: Confluence release summary
+description: >-
+  Summarise a project with Gemini and update an existing Confluence page.
+  Runs on major and minor releases only; patch releases are a no-op.
+author: Snyk SecRel
+
+# Composite + a dependency-free Node script on purpose: this has to run in
+# Python, Go and Java repos that have no package.json, so there is no install
+# step and nothing to build.
+inputs:
+  gemini-api-key:
+    description: Google AI Studio API key.
+    required: true
+  gemini-model:
+    description: >-
+      Gemini model id. Kept configurable because these churn fast: 2.0-flash was
+      shut down in March 2026 and 2.5-flash is already deprecated. Bump this
+      rather than editing the script.
+    required: false
+    default: gemini-3.6-flash
+
+  confluence-base-url:
+    description: e.g. https://yourorg.atlassian.net/wiki
+    required: true
+  confluence-email:
+    description: Atlassian account the API token belongs to.
+    required: true
+  confluence-api-token:
+    description: Atlassian API token (id.atlassian.com → API tokens).
+    required: true
+  confluence-page-id:
+    description: >-
+      Numeric id of the EXISTING page to update. The action never creates a page,
+      so a wrong id fails loudly instead of scattering stray pages in a space.
+    required: true
+
+  version:
+    description: Version being released. Defaults to the triggering tag.
+    required: false
+    default: ''
+  release-notes:
+    description: Release notes to feed the model alongside the docs.
+    required: false
+    default: ''
+  extra-docs:
+    description: >-
+      Extra files to summarise in addition to README.md, comma or newline
+      separated. Missing files are skipped with a note.
+    required: false
+    default: ''
+  dry-run:
+    description: Generate and print the page, publish nothing.
+    required: false
+    default: 'false'
+  force:
+    description: >-
+      Publish even when this isn't a major/minor bump. The version gate exists to
+      stop automated churn, not to overrule someone who explicitly asked — set
+      this for manual runs.
+    required: false
+    default: 'false'
+
+outputs:
+  published:
+    description: '"true" when a page was written; "false" for a patch release or a dry run.'
+    value: ${{ steps.summarize.outputs.published }}
+
+runs:
+  using: composite
+  steps:
+    - id: summarize
+      shell: bash
+      # Everything goes through env, so no secret is ever interpolated into a
+      # command line where it could surface in a log.
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        GEMINI_MODEL: ${{ inputs.gemini-model }}
+        CONFLUENCE_BASE_URL: ${{ inputs.confluence-base-url }}
+        CONFLUENCE_EMAIL: ${{ inputs.confluence-email }}
+        CONFLUENCE_API_TOKEN: ${{ inputs.confluence-api-token }}
+        CONFLUENCE_PAGE_ID: ${{ inputs.confluence-page-id }}
+        VERSION: ${{ inputs.version }}
+        RELEASE_NOTES: ${{ inputs.release-notes }}
+        EXTRA_DOCS: ${{ inputs.extra-docs }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        FORCE: ${{ inputs.force }}
+      run: node "$GITHUB_ACTION_PATH/summarize.mjs"
