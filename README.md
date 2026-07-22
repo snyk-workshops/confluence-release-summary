@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: dogeared/confluence-release-summary@v1
+      - uses: snyk-workshops/confluence-release-summary@v1
         with:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           confluence-base-url: ${{ secrets.CONFLUENCE_BASE_URL }}
@@ -72,7 +72,7 @@ involved:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: dogeared/confluence-release-summary@v1
+      - uses: snyk-workshops/confluence-release-summary@v1
         with:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           confluence-base-url: ${{ secrets.CONFLUENCE_BASE_URL }}
