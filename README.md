@@ -167,7 +167,4 @@ VERSION=1.2.0 GEMINI_API_KEY=... DRY_RUN=true node summarize.mjs
 
 ## Licence
 
-**Not yet licensed.** Fine while this repo is private, since access is granted by
-permission rather than licence — but a public repo with no LICENSE means "all
-rights reserved", which blocks the reuse this action exists for. Add one before
-making it public.
+[MIT](LICENSE) — Copyright (c) 2026 Snyk Ltd.
