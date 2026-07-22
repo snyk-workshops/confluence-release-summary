@@ -16,6 +16,13 @@ quiet when it doesn't.
 
 ## Usage
 
+Which pattern you want depends on **who creates your releases**.
+
+### A. A person cuts releases
+
+GitHub UI, or `gh release create` run with a personal token. A standalone
+workflow on the release event:
+
 ```yaml
 name: Confluence summary
 on:
@@ -43,17 +50,53 @@ jobs:
           release-notes: ${{ github.event.release.body }}
 ```
 
-### If your releases are created by CI, `release: published` will never fire
+### B. Your CI cuts releases
 
-Events raised by the default `GITHUB_TOKEN` **do not start new workflow runs**. So
-if one of your workflows creates the release (`gh release create` with
-`github.token`), a `release:` trigger looks correct and silently never runs.
+**`release: published` will never fire.** Events raised by the default
+`GITHUB_TOKEN` do not start new workflow runs, so if one of your workflows creates
+the release, a `release:` trigger looks correct and silently never runs.
 
-- **Chain it** in the same workflow that cuts the release — `needs: [release]`,
-  no event involved.
-- Or **use a PAT** to create the release, so the event is attributed to a user.
+Chain the job inside the workflow that cuts the release instead — no event
+involved:
 
-`release: published` is fine when a human cuts releases through the GitHub UI.
+```yaml
+# in the same workflow as your `release` job
+  confluence:
+    needs: [release]                        # run after the release is created
+    if: github.ref == 'refs/heads/main'     # that workflow also runs on PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: dogeared/confluence-release-summary@v1
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          confluence-base-url: ${{ secrets.CONFLUENCE_BASE_URL }}
+          confluence-email: ${{ secrets.CONFLUENCE_EMAIL }}
+          confluence-api-token: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          confluence-page-id: ${{ secrets.CONFLUENCE_PAGE_ID }}
+```
+
+No `version` or `release-notes` here — there is no release payload to read them
+from, so the action resolves the version from git tags.
+
+The other option is a PAT for creating the release, so the event is attributed to
+a user and pattern A works. That costs you a stored token to manage.
+
+### Don't mix the two
+
+`needs:` and `if:` belong to pattern B only. Copying them into pattern A breaks
+it:
+
+- `needs: [release]` names a job in the *same* workflow. Pattern A has one job, so
+  GitHub rejects the workflow with "depends on unknown job".
+- `if: github.ref == 'refs/heads/main'` is never true on a release event —
+  `github.ref` is the **tag** ref (`refs/tags/v1.2.3`). The job silently never
+  runs, which is the harder failure to spot.
 
 ## Configuration
 
