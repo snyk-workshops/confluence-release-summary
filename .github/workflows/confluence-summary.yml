@@ -1,0 +1,61 @@
+# Dogfooding: this action summarising its own repo.
+#
+# `uses: ./` runs the action from this checkout rather than a published tag, so a
+# run here exercises whatever is on the branch — the point being that if it breaks
+# for us, we find out before anyone else does.
+#
+# Unlike a repo whose CI cuts releases, `release: published` DOES fire here:
+# releases are created by a person, and only GITHUB_TOKEN-raised events are
+# suppressed.
+name: Confluence summary
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to summarise (defaults to the newest tag)
+        required: false
+        default: ''
+      dry-run:
+        description: Generate and print only, publish nothing
+        required: false
+        default: 'true'
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Tags drive the version gate. Note the moving `v1` tag is ignored —
+          # only full three-part versions count — so it can't be mistaken for a
+          # release when working out what the previous one was.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - uses: ./
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          confluence-base-url: ${{ secrets.CONFLUENCE_BASE_URL }}
+          confluence-email: ${{ secrets.CONFLUENCE_EMAIL }}
+          confluence-api-token: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          confluence-page-id: ${{ secrets.CONFLUENCE_PAGE_ID }}
+          version: ${{ github.event.inputs.version || github.event.release.tag_name }}
+          release-notes: ${{ github.event.release.body }}
+          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+          # A manual run is a deliberate act, so it isn't held back by the
+          # major/minor gate.
+          force: ${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Upload the generated page
+        if: always() && hashFiles('confluence-summary.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: confluence-summary
+          path: confluence-summary.html
+          retention-days: 14

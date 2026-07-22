@@ -95,7 +95,12 @@ integration would otherwise look like a successful no-op forever.
 ## Version gating
 
 The release tag is compared against the **previous git tag**, so this works in any
-language. `v` prefixes are fine and ordering is numeric (`2.10.0` > `2.9.0`).
+language. `v` prefixes are fine (`v1.2.3` and `1.2.3` both parse, and can be mixed
+in one repo) and ordering is numeric (`2.10.0` > `2.9.0`).
+
+Only full three-part versions count. A **moving major tag** like `v1` is ignored
+rather than treated as a release, so it can't be mistaken for the previous version
+when working out whether a bump was major, minor or patch.
 
 `fetch-depth: 0` is required. Without tags the action **fails** rather than
 assuming a first release — assuming would republish on every patch, which is the
@@ -155,6 +160,25 @@ is not deprecated and is stable, while Interactions is still on a `/v1beta/` pat
 and changed schema in May 2026 (`outputs` → `steps`). Worth revisiting when it
 reaches `v1`, or if a model you want is only served there. The change is confined
 to `callGemini()`.
+
+## Dogfooding
+
+This repo runs the action on itself — see
+`.github/workflows/confluence-summary.yml`. It uses `uses: ./` rather than a
+published tag, so a run exercises whatever is on the branch: if a change breaks
+the action, it breaks here first.
+
+Unlike a repo whose CI cuts its releases, `release: published` **does** fire here,
+because releases are created by a person — only `GITHUB_TOKEN`-raised events are
+suppressed.
+
+To try it, set the five secrets on this repo (pointing at a scratch Confluence
+page) and run:
+
+```bash
+gh workflow run confluence-summary.yml -f dry-run=true
+gh run download --name confluence-summary
+```
 
 ## Development
 
